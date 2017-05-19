@@ -36,4 +36,10 @@ plt.plot(X,Yhat)
 plt.axis('equal')
 plt.show()
 
+#calculate R-squared
+n = Y - Yhat
+d = Y - Y.mean()
+R2 = 1 - n.dot(n)/d.dot(d)
+print "R-squared : ", R2
+
 
