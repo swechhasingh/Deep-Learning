@@ -8,7 +8,7 @@ X = []
 Y = []
 R = pd.read_csv('data_2d.csv', header=None).as_matrix()
 X = R[:,[0,1]]
-X = np.c_[X,np.ones(100)]
+X = np.c_[X,np.ones(100)]              #for adding column vector of ones to X use np.c_[X,new]
 Y = R[:,2]
 
 X = np.array(X)
