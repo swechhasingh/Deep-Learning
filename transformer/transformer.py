@@ -2,6 +2,7 @@ import torch
 import math, copy
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 
 def attention(d_k, query, key, value, mask=None):
@@ -11,9 +12,6 @@ def attention(d_k, query, key, value, mask=None):
     dot_prod = torch.matmul(query, torch.transpose(key, 1, 2))
     scale_dot_prod = (1.0 / math.sqrt(d_k)) * dot_prod
     if mask is not None:
-        # mask = torch.tril(
-        #     torch.ones(query.shape[0], query.shape[1], 1).to(query.device)
-        # )
         scale_dot_prod = scale_dot_prod.masked_fill(mask == 0, -1e9)
     # attention
     weights = F.softmax(scale_dot_prod, dim=-1)
@@ -25,21 +23,21 @@ def positional_embedding(inp, d_model, max_len=2000):
     pos_embed = inp.new_zeros((max_len, d_model)).float()
     pos = torch.arange(max_len).float().unsqueeze(1)  # max_lenx1
     exp_term = torch.exp(
-        math.log(10000.0) * (-torch.arange(0, d_model, 2) / d_model)
+        math.log(10000.0) * (-torch.arange(0, d_model, 2).float() / d_model)
     )  # d_model
     x = pos * exp_term  # max_len x (d_model // 2)
     pos_embed[:, 0::2] = torch.sin(x)
     pos_embed[:, 1::2] = torch.cos(x)
-    pos_embed.requires_grad = False
     pos_embed = pos_embed.unsqueeze(0)  # (1, max_len, self.d_model)
-    return pos_embed[:, : inp.shape[1]]
+
+    return Variable(pos_embed[:, : inp.shape[1]], requires_grad=False)
 
 
 class Transformer(nn.Module):
     def __init__(
         self,
         src_vocab,
-        tgt_vocab,
+        tgt_vocab=None,
         d_model=512,
         n_heads=8,
         n_enc_layers=6,
@@ -54,24 +52,29 @@ class Transformer(nn.Module):
         self.n_enc_layers = n_enc_layers
         self.n_dec_layers = n_dec_layers
 
-        self.src_embed_layer = math.sqrt(d_model) * nn.Embedding(
-            self.src_vocab, self.d_model
-        )
-        self.tgt_embed_layer = math.sqrt(d_model) * nn.Embedding(
-            self.tgt_vocab, self.d_model
-        )
+        self.src_embed_layer = nn.Embedding(self.src_vocab, self.d_model)
+        self.tgt_embed_layer = nn.Embedding(self.tgt_vocab, self.d_model)
         self.encoder = Encoder(n_enc_layers, d_model, n_heads, self.d_k)
         self.decoder = Decoder(n_dec_layers, d_model, n_heads, self.d_k)
         self.output_layer = nn.Linear(self.d_model, self.tgt_vocab)
+        self.init_weights()
+
+    def init_weights(self):
+        # Initialize parameters with Glorot / fan_avg.
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform(p)
 
     def forward(self, inp, inp_mask, tgt, tgt_mask):
-        inp_embed = self.src_embed_layer(inp) + positional_embedding(inp, self.d_model)
-        target_embed = self.tgt_embed_layer(tgt) + positional_embedding(
-            tgt, self.d_model
-        )
+        inp_embed = math.sqrt(self.d_model) * self.src_embed_layer(
+            inp
+        ) + positional_embedding(inp, self.d_model)
+        target_embed = math.sqrt(self.d_model) * self.tgt_embed_layer(
+            tgt
+        ) + positional_embedding(tgt, self.d_model)
         encoding = self.encoder(inp_embed, inp_mask)
         decoding = self.decoder(encoding, inp_mask, target_embed, tgt_mask)
-        log_softmax = self.output_layer(decoding)
+        log_softmax = F.log_softmax(self.output_layer(decoding), dim=-1)
         return log_softmax
 
 
