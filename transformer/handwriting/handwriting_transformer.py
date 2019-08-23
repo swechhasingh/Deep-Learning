@@ -101,12 +101,14 @@ class HandwritingTransformer(nn.Module):
         with torch.no_grad():
             batch_size = stroke.shape[0]
             print("batch_size:", batch_size)
-            while seq_len < 2000:
+            while seq_len < 700:
                 y_hat = self.forward(text, text_mask, stroke, stroke_mask)
                 y_hat = y_hat[-1, -1]
                 Z = sample_from_out_dist(y_hat, bias)
                 stroke = torch.cat((stroke, Z), dim=1)
-                stroke_mask = subsequent_mask(size=stroke.size(1))
+                stroke_mask = (
+                    subsequent_mask(size=stroke.size(1)).int().to(stroke.device)
+                )
                 gen_seq.append(Z)
                 seq_len += 1
 
