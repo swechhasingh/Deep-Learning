@@ -109,12 +109,11 @@ class HandwritingDataset(Dataset):
     @staticmethod
     def make_std_mask(tgt_mask):
         "Create a mask to hide padding and future words."
-        "tgt_mask:nxl"
-        tgt_mask = tgt_mask.unsqueeze(-2)  # nx1Xl
+        "tgt_mask:1xl"
         tgt_mask = tgt_mask & Variable(
             subsequent_mask(tgt_mask.size(-1)).type_as(tgt_mask.data)
         )
-        print("tgt_mask shape:", tgt_mask.shape)
+        # print("tgt_mask shape:", tgt_mask.shape)
         return tgt_mask
 
     def __len__(self):
@@ -140,7 +139,7 @@ class HandwritingDataset(Dataset):
     def __getitem__(self, idx):
 
         mask = torch.from_numpy(self.mask[idx])
-        mask = self.make_std_mask(mask.int())
+        std_mask = self.make_std_mask(torch.from_numpy(self.mask[idx]).int())
         if self.text_req:
             input_seq = torch.zeros(self.dataset[idx].shape, dtype=torch.float32)
             input_seq[1:, :] = torch.from_numpy(self.dataset[idx, :-1, :])
@@ -148,7 +147,7 @@ class HandwritingDataset(Dataset):
             target = torch.from_numpy(self.dataset[idx])
             text = torch.from_numpy(self.char_to_idx(self.texts[idx]))
             char_mask = torch.from_numpy(self.char_mask[idx]).unsqueeze(-2)
-            return (input_seq, target, mask, text, char_mask)
+            return (input_seq, target, mask, std_mask, text, char_mask)
         elif self.data_aug:
             seq_len = len(mask.nonzero())
             start = 0

@@ -68,19 +68,20 @@ def train_epoch(model, optimizer, epoch, train_loader, device):
     model.train()
     for i, mini_batch in enumerate(train_loader):
 
-        stroke, targets, mask, text, text_mask = mini_batch
+        stroke, targets, mask, std_mask, text, text_mask = mini_batch
         text = text.to(device)
         text_mask = text_mask.to(device)
 
         stroke = stroke.to(device)
         targets = targets.to(device)
         mask = mask.to(device)
+        std_mask = std_mask.to(device)
 
         batch_size = stroke.shape[0]
 
         optimizer.zero_grad()
 
-        y_hat = model.forward(text, text_mask, stroke, mask)
+        y_hat = model.forward(text, text_mask, stroke, std_mask)
 
         loss = compute_nll_loss(targets, y_hat, mask)
 
@@ -88,11 +89,6 @@ def train_epoch(model, optimizer, epoch, train_loader, device):
         y_hat.register_hook(lambda grad: torch.clamp(grad, -100, 100))
 
         loss.backward()
-
-        nn.utils.clip_grad_value_(model.lstm_1.parameters(), 10)
-        nn.utils.clip_grad_value_(model.lstm_2.parameters(), 10)
-        nn.utils.clip_grad_value_(model.lstm_3.parameters(), 10)
-        nn.utils.clip_grad_value_(model.window_layer.parameters(), 10)
 
         optimizer.step()
         avg_loss += loss.item()
@@ -114,17 +110,17 @@ def validation(model, valid_loader, device, epoch):
     with torch.no_grad():
         for i, mini_batch in enumerate(valid_loader):
 
-            stroke, targets, mask, text, text_mask = mini_batch
+            stroke, targets, mask, std_mask, text, text_mask = mini_batch
             text = text.to(device)
             text_mask = text_mask.to(device)
 
             stroke = stroke.to(device)
             targets = targets.to(device)
             mask = mask.to(device)
-
+            std_mask = std_mask.to(device)
             batch_size = stroke.shape[0]
 
-            y_hat = model.forward(text, text_mask, stroke, mask)
+            y_hat = model.forward(text, text_mask, stroke, std_mask)
 
             loss = compute_nll_loss(targets, y_hat, mask)
             avg_loss += loss.item()
@@ -196,8 +192,7 @@ def train(
 
             # plot the sequence
             plot_stroke(
-                gen_seq[0],
-                save_name=save_path + model_type + "_seq_" + str(best_epoch) + ".png",
+                gen_seq[0], save_name=save_path + "_seq_" + str(best_epoch) + ".png"
             )
             k = 0
         elif k > patience:
