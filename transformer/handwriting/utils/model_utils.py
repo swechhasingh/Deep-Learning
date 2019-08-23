@@ -10,7 +10,7 @@ def subsequent_mask(size):
     """
         Args: size: length of sentences
     """
-    attn_shape = (1, size, size)
+    attn_shape = (size, size)
     subsequent_mask = np.tril(np.ones(attn_shape)).astype("uint8")
     return torch.from_numpy(subsequent_mask)
 
