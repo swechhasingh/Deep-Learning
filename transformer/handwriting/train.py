@@ -186,13 +186,15 @@ def train(
                 train_loader.dataset.idx_to_char,
                 bias=10.0,
             )
-
+            plot_stroke(
+                gen_seq[0], save_name=save_path + "seq_" + str(best_epoch) + ".png"
+            )
             # denormalize the generated offsets using train set mean and std
             gen_seq = data_denormalization(Global.train_mean, Global.train_std, gen_seq)
 
             # plot the sequence
             plot_stroke(
-                gen_seq[0], save_name=save_path + "_seq_" + str(best_epoch) + ".png"
+                gen_seq[0], save_name=save_path + "n_seq_" + str(best_epoch) + ".png"
             )
             k = 0
         elif k > patience:
