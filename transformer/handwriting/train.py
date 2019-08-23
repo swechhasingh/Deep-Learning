@@ -27,10 +27,10 @@ def generate_conditional_sequence(
 
     model.eval()
     stroke = torch.zeros(1, 1, 3).to(device)
-    stroke_mask = subsequent_mask(size=1)
+    stroke_mask = subsequent_mask(size=1).int()
     char_seq = np.array(list(char_seq + "  "))
     print("".join(char_seq))
-    text = np.array([[char_to_id[char] for char in char_seq]]).astype(np.float32)
+    text = np.array([[char_to_id[char] for char in char_seq]]).astype(np.long)
     print("text:", text)
     text = torch.from_numpy(text).to(device)
     text_mask = torch.ones(text.shape).to(device)
