@@ -74,8 +74,8 @@ class Transformer(nn.Module):
         ) + positional_embedding(tgt, self.d_model)
         encoding = self.encoder(inp_embed, inp_mask)
         decoding = self.decoder(encoding, inp_mask, target_embed, tgt_mask)
-        log_softmax = F.log_softmax(self.output_layer(decoding), dim=-1)
-        return log_softmax
+        logits = self.output_layer(decoding)
+        return logits
 
 
 class Encoder(nn.Module):
@@ -125,47 +125,37 @@ class PointWiseFeedForwardNetwork(nn.Module):
         return self.dropout(x)
 
 
-class LayerNorm(nn.Module):
-    "Construct a layernorm module."
-
-    def __init__(self, features, eps=1e-6):
-        super(LayerNorm, self).__init__()
-        self.a_2 = nn.Parameter(torch.ones(features))
-        self.b_2 = nn.Parameter(torch.zeros(features))
-        self.eps = eps
-
-    def forward(self, x):
-        mean = x.mean(-1, keepdim=True)
-        std = x.std(-1, keepdim=True)
-        return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
-
-
 class EncoderLayer(nn.Module):
-    def __init__(self, n_heads, d_model, d_k, d_ff=2048):
+    def __init__(self, n_heads, d_model, d_k, d_ff=2048, p=0.1):
         super(EncoderLayer, self).__init__()
         self.attn_layer = MultiHeadAttention(n_heads, d_model, d_k, p=0.1)
         self.ff_layer = PointWiseFeedForwardNetwork(d_model, d_ff, p=0.5)
-        self.norm = LayerNorm(d_model)
+        self.norm = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(p)
 
     def forward(self, x, mask):
-        x = self.norm(x + self.attn_layer(x, x, x, mask))
-        return self.norm(x + self.ff_layer(x))
+        x = self.norm(x + self.dropout(self.attn_layer(x, x, x, mask)))
+        return self.norm(x + self.dropout(self.ff_layer(x)))
 
 
 class DecoderLayer(nn.Module):
-    def __init__(self, n_heads, d_model, d_k, d_ff=2048):
+    def __init__(self, n_heads, d_model, d_k, d_ff=2048, p=0.1):
         super(DecoderLayer, self).__init__()
         self.self_attn = MultiHeadAttention(n_heads, d_model, d_k, p=0.1)
         self.enc_dec_attn = MultiHeadAttention(n_heads, d_model, d_k, p=0.1)
         self.ff_layer = PointWiseFeedForwardNetwork(d_model, d_ff, p=0.5)
-        self.norm = LayerNorm(d_model)
+        self.norm = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(p)
 
     def forward(self, encoding, src_mask, target, target_mask):
-        target = self.norm(target + self.self_attn(target, target, target, target_mask))
         target = self.norm(
-            target + self.enc_dec_attn(target, encoding, encoding, src_mask)
+            target + self.dropout(self.self_attn(target, target, target, target_mask))
         )
-        return self.norm(target + self.ff_layer(target))
+        target = self.norm(
+            target
+            + self.dropout(self.enc_dec_attn(target, encoding, encoding, src_mask))
+        )
+        return self.norm(target + self.dropout(self.ff_layer(target)))
 
 
 class MultiHeadAttention(nn.Module):
