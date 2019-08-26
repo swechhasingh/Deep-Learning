@@ -13,6 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from custom_optimizer import CustomOptimizer
 from handwriting_transformer import HandwritingTransformer
 from utils import plot_stroke
 from utils.constants import Global
@@ -79,7 +80,7 @@ def train_epoch(model, optimizer, epoch, train_loader, device):
 
         batch_size = stroke.shape[0]
 
-        optimizer.zero_grad()
+        optimizer.optimizer.zero_grad()
 
         y_hat = model.forward(text, text_mask, stroke, std_mask)
 
@@ -152,17 +153,19 @@ def train(
     model_path = save_path + "best_model.pt"
     model = model.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-
+    k = 0
     train_losses = []
     valid_losses = []
     best_loss = math.inf
     best_epoch = 0
-    k = 0
+
+    adam_optimizer = optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9)
+    optimizer = CustomOptimizer(adam_optimizer, model.d_model, warmup_steps=4000)
+
     for epoch in range(n_epochs):
         print("training.....")
         train_loss = train_epoch(model, optimizer, epoch, train_loader, device)
-
+        print("Optimizer state:", optimizer.des_opt())
         print("validation....")
         valid_loss = validation(model, valid_loader, device, epoch)
 
