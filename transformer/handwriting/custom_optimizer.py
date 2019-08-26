@@ -23,8 +23,8 @@ class CustomOptimizer:
 
         if step is None:
             step = self.step_num
-        lrate = (self.d_model) ** (-0.5) * np.min(
-            1.0 / math.sqrt(step), step * np.pow(self.warmup_steps, -1.5)
+        lrate = (self.d_model) ** (-0.5) * min(
+            1.0 / math.sqrt(step), step * math.pow(self.warmup_steps, -1.5)
         )
         return lrate
 
